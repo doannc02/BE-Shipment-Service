@@ -62,7 +62,7 @@ public class CustomerService : ICustomerService, ICustomerBatchLookupService
 
             if (string.IsNullOrWhiteSpace(jsonString))
             {
-                return new Dictionary<Guid, CustomerEntityView>(); 
+                return new Dictionary<Guid, CustomerEntityView>();
             }
 
             var responseJson = JsonConvert.DeserializeObject<Dictionary<Guid, CustomerEntityView>>(jsonString);
@@ -77,7 +77,7 @@ public class CustomerService : ICustomerService, ICustomerBatchLookupService
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching customer list: {ex.Message}");
-            return new Dictionary<Guid, CustomerEntityView>(); 
+            return new Dictionary<Guid, CustomerEntityView>();
         }
     }
 

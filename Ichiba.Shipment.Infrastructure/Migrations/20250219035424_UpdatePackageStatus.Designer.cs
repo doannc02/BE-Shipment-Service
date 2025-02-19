@@ -3,6 +3,7 @@ using System;
 using Ichiba.Shipment.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ichiba.Shipment.Infrastructure.Migrations
 {
     [DbContext(typeof(ShipmentDbContext))]
-    partial class ShipmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250219035424_UpdatePackageStatus")]
+    partial class UpdatePackageStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -273,7 +276,7 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.HasOne("Ichiba.Shipment.Domain.Entities.Package", "Package")
                         .WithMany()
                         .HasForeignKey("PackageId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Ichiba.Shipment.Domain.Entities.ShipmentEntity", "Shipment")

@@ -48,7 +48,7 @@ namespace Ichiba.Shipment.Application.Shipments.Commands
                 };
             }
 
-            shipment.Status = request.Status.ToString();
+            shipment.Status = request.Status;
             shipment.UpdateBy = request.UpdatedBy;
             shipment.UpdateAt = request.UpdatedAt;
 

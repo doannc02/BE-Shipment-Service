@@ -15,7 +15,7 @@ public class ShipmentEntity
     public Guid CustomerId { get; set; }
     public string ShipmentNumber { get; set; } = string.Empty;
     public string? Note { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public ShipmentStatus Status { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal Weight { get; set; }
     public decimal Height { get; set; }

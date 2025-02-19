@@ -1,6 +1,5 @@
 using Ichiba.Shipment.Application;
 using Ichiba.Shipment.Infrastructure;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
 

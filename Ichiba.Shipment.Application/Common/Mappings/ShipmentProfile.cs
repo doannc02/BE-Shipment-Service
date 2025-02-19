@@ -14,8 +14,8 @@ namespace Ichiba.Shipment.Application.Common.Mappings
     {
         public ShipmentProfile()
         {
-          
-           
+
+
         }
     }
 }

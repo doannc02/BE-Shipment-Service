@@ -50,7 +50,7 @@ namespace Ichiba.Shipment.Infrastructure.Data
                 .HasOne(sp => sp.Package)
                 .WithMany()
                 .HasForeignKey(sp => sp.PackageId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
     }

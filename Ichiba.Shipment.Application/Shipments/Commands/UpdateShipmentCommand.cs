@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Ichiba.Shipment.Application.Common.BaseResponse;
+﻿using Ichiba.Shipment.Application.Common.BaseResponse;
 using Ichiba.Shipment.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -23,17 +22,13 @@ public class UpdateShipmentCommand : IRequest<BaseEntity<UpdateShipmentResponse>
 
 public class UpdateShipmentCommandHandler : IRequestHandler<UpdateShipmentCommand, BaseEntity<UpdateShipmentResponse>>
 {
-    private readonly IMediator _mediator;
-    private readonly IMapper _mapper;
     private readonly IShipmentRepository _shipmentRepository;
     private readonly ILogger<UpdateShipmentCommandHandler> _logger;
 
-    public UpdateShipmentCommandHandler(IMapper mapper, IMediator mediator, ILogger<UpdateShipmentCommandHandler> logger, IShipmentRepository shipmentRepository)
+    public UpdateShipmentCommandHandler(IMediator mediator, ILogger<UpdateShipmentCommandHandler> logger, IShipmentRepository shipmentRepository)
     {
         _logger = logger;
-        _mapper = mapper;
         _shipmentRepository = shipmentRepository;
-        _mediator = mediator;
     }
 
     public async Task<BaseEntity<UpdateShipmentResponse>> Handle(UpdateShipmentCommand request, CancellationToken cancellationToken)

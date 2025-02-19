@@ -57,13 +57,13 @@ public class ShipmentController : ControllerBase
         return Ok(result);
     }
 
-    //[HttpGet]
-    //public async Task<IActionResult> GetDetailShipment([FromQuery] QueryDetailShipment query)
-    //{
-    //    if (query == null)
-    //        return BadRequest("Invalid request data");
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> GetDetailShipment(DeleteShipmentCommand query)
+    {
+        if (query == null)
+            return BadRequest("Invalid request data");
 
-    //    var result = await _mediator.Send(query);
-    //    return Ok(result);
-    //}
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
 }

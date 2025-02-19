@@ -63,7 +63,7 @@ public class CreateShipmentsCommandHandler : IRequestHandler<CreateMultiShipment
                 ShipmentNumber = shipmentNumber,
                 CreateAt = DateTime.UtcNow,
                 Note = shipmentCommand.Note,
-                Status = ShipmentStatus.ShipmentCreated.ToString(),
+                Status = ShipmentStatus.ShipmentCreated,
                 Addresses = shipmentCommand.Addresses.Select(addr => new ShipmentAddress
                 {
                     Id = Guid.NewGuid(),

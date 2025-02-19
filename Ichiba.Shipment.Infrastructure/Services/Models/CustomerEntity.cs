@@ -25,7 +25,7 @@ namespace Ichiba.Shipment.Infrastructure.Services.Models
         public Guid Id { get; set; }
         public Guid CustomerId { get; set; }
         public string City { get; set; }
-        public string District { get; set; } 
+        public string District { get; set; }
         public string Ward { get; set; }
         public string Address { get; set; }
     }

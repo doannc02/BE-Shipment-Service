@@ -13,7 +13,7 @@ namespace Ichiba.Shipment.Infrastructure
         {
             services.AddHttpClient<ICustomerService, CustomerService>(client =>
             {
-                client.BaseAddress = new Uri("https://localhost:7070"); 
+                client.BaseAddress = new Uri("https://localhost:7070");
             });
 
             services.AddHttpClient<ICustomerBatchLookupService, CustomerService>(client =>
