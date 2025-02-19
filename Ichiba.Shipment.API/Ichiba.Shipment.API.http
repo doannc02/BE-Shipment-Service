@@ -1,0 +1,6 @@
+@Ichiba.Shipment.API_HostAddress = http://localhost:5117
+
+GET {{Ichiba.Shipment.API_HostAddress}}/shipment-services/
+Accept: application/json
+
+###
