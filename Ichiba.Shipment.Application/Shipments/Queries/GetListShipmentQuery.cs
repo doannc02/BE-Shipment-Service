@@ -1,5 +1,6 @@
 ﻿using Ichiba.Shipment.Application.Common.BaseRequest;
 using Ichiba.Shipment.Application.Common.BaseResponse;
+using Ichiba.Shipment.Application.Packages.Commands;
 using Ichiba.Shipment.Domain.Consts;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Infrastructure.Data;
@@ -38,7 +39,7 @@ public class GetListShipmentQueryResponse
 public class PackageSMDto
 {
     public Guid CustomerId { get; set; }
-    public required Guid ShipmentAddressId { get; set; }
+    public virtual List<PackageAddressCreateSMDTO> PackageAddresses {get; set;}
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid WarehouseId { get; set; }
     public string PackageNumber { get; set; } = string.Empty;
@@ -76,6 +77,35 @@ public record ShipmentPackageDto
     public DateTime CreateAt { get; set; } = DateTime.UtcNow;
     public Guid? CreateBy { get; set; }
 }
+
+public class PackageAddressCreateSMDTO
+{
+    public Guid Id { get; set; }
+    public Guid PackageId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? PrefixPhone { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Code { get; set; }
+    public string? Phone { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
+    public string? Ward { get; set; }
+    public string? PostCode { get; set; }
+    public AddressStatus Status { get; set; }
+    public string Address { get; set; } = string.Empty;
+    public ShipmentAddressType Type { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string? Country { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? DeliveryInstructions { get; set; }
+    public bool IsDefault { get; set; } = false;
+    public bool SensitiveDataFlag { get; set; } = false;
+    public DateTime? EstimatedDeliveryDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string SearchIndex { get; set; } = string.Empty;
+}
 public class GetListShipmentQuery : QueryPage, IRequest<PageResponse<GetListShipmentQueryResponse>>
 {
 }
@@ -98,12 +128,12 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
     {
         try
         {
-
             var queryable = _dbContext.Shipments
                                 .AsNoTracking()
                                 .Include(c => c.Addresses)
                                 .Include(c => c.ShipmentPackages)
                                 .ThenInclude(sp => sp.Package)
+                                .ThenInclude(addr => addr.PackageAdresses)
                                 .OrderBy(c => c.CreateAt);
 
             var totalElements = await queryable.CountAsync(cancellationToken);
@@ -159,7 +189,28 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
                             Length = sp.Package.Length,
                             WarehouseId = sp.Package.WarehouseId,
                             CustomerId = sp.Package.CustomerId,
-                            ShipmentAddressId = sp.Package.ShipmentAddressId
+                            PackageAddresses = sp.Package.PackageAdresses.Select(p => new PackageAddressCreateSMDTO
+                            {
+                                Id = Guid.NewGuid(),
+                                District = p.District,
+                                Longitude = p.Longitude,
+                                Latitude = p.Latitude,
+                                EstimatedDeliveryDate = p.EstimatedDeliveryDate,
+                                DeliveryInstructions = p.DeliveryInstructions,
+                                PackageId = sp.Package.Id,
+                                Name = p.Name,
+                                Phone = p.Phone,
+                                PrefixPhone = p.PrefixPhone,
+                                PostCode = p.PostCode,
+                                Ward = p.Ward,
+                                Status = p.Status,
+                                Address = p.Address,
+                                City = p.City,
+                                Code = p.Code,
+                                Country = p.Country,
+                                UpdatedAt = DateTime.UtcNow,
+                                UpdatedBy = p.UpdateBy
+                            }).ToList()
                         }).ToList(),
                         ShipmentNumber = s.ShipmentNumber,
                         Note = s.Note,

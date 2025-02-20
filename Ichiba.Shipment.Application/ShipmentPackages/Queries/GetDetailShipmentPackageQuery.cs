@@ -27,8 +27,8 @@ public class GetDetailShipmentPackageQueryResponse
 public class PackageView
 {
     public Guid CustomerId { get; set; }
-    public virtual ShipmentAddress ShipmentAddress { get; set; }
-    public required Guid ShipmentAddressId { get; set; }
+   // public virtual ShipmentAddress ShipmentAddress { get; set; }
+    //public required Guid ShipmentAddressId { get; set; }
     public Guid Id { get; set; }
     public Guid WarehouseId { get; set; }
     public string PackageNumber { get; set; }
@@ -124,7 +124,7 @@ public class GetDetailShipmentPackageQueryHandler : IRequestHandler<GetDetailShi
             {
                 Id = query.Package.Id,
                 CustomerId = query.Package.CustomerId,
-                ShipmentAddressId = query.Package.ShipmentAddressId,
+              //  ShipmentAddressId = query.Package.ShipmentAddressId,
                 WarehouseId = query.Package.WarehouseId,
                 PackageNumber = query.Package.PackageNumber,
                 Note = query.Package.Note,
@@ -139,7 +139,7 @@ public class GetDetailShipmentPackageQueryHandler : IRequestHandler<GetDetailShi
                 UpdateBy = query.Package.UpdateBy,
                 DeleteAt = query.Package.DeleteAt,
                 DeleteBy = query.Package.DeleteBy,
-                ShipmentAddress = query.Package.ShipmentAddress
+             //   ShipmentAddress = query.Package.ShipmentAddress
             },
             Shipment = new ShipmentDTO
             {
