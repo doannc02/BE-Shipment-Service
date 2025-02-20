@@ -1,28 +1,29 @@
-﻿using Ichiba.Shipment.Application.Shipments.Commands;
+﻿using Ichiba.Shipment.Application.Packages;
+using Ichiba.Shipment.Application.Packages.Commands;
+using Ichiba.Shipment.Application.Shipments.Commands;
 using Ichiba.Shipment.Domain.Interfaces;
 using Ichiba.Shipment.Infrastructure.Repositories;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Ichiba.Shipment.Application
+
+namespace Ichiba.Shipment.Application;
+
+public static class ConfigurationService
 {
-    public static class ConfigurationService
+    public static IServiceCollection AddApplicationServices(this IServiceCollection service)
     {
-        public static IServiceCollection AddApplicationServices(this IServiceCollection service)
-        {
-            service.AddAutoMapper(Assembly.GetExecutingAssembly());
-            service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentsCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(DeleteShipmentCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(UpdateShipmentCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateMultiShipmentsCommand).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreatePackageCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(UpdatePackageCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(DeletePackageCommandHandler).Assembly));
+ 
+        service.AddScoped<IShipmentRepository, ShipmentRepository>();
 
-            service.AddScoped<IShipmentRepository, ShipmentRepository>();
 
-
-            return service;
-        }
+        return service;
     }
 }

@@ -11,6 +11,7 @@ public enum ShipmentStatus
 public class ShipmentEntity
 {
     public Guid Id { get; set; }
+    public Guid CarrierId { get; set; }
     public Guid WarehouseId { get; set; }
     public Guid CustomerId { get; set; }
     public string ShipmentNumber { get; set; } = string.Empty;

@@ -3,6 +3,7 @@
 public class Package
 {
     public Guid CustomerId { get; set; }
+    public Guid CarrierId { get; set; }
     public virtual List<PackageAddress> PackageAdresses { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid WarehouseId { get; set; }

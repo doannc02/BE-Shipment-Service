@@ -64,18 +64,18 @@ public class CreateShipmentsCommandHandler : IRequestHandler<CreateMultiShipment
                 CreateAt = DateTime.UtcNow,
                 Note = shipmentCommand.Note,
                 Status = ShipmentStatus.ShipmentCreated,
-                Addresses = shipmentCommand.Addresses.Select(addr => new ShipmentAddress
-                {
-                    Id = Guid.NewGuid(),
-                    ShipmentId = IdGenerate,
-                    Type = ShipmentAddressType.SenderAddress,
-                    Address = addr.Address,
-                    City = addr.City,
-                    Code = addr.Code,
-                    District = addr.District,
-                    Name = addr.Name,
-                    CreateAt = DateTime.UtcNow
-                }).ToList()
+                //Addresses = shipmentCommand.Addresses.Select(addr => new ShipmentAddress
+                //{
+                //    Id = Guid.NewGuid(),
+                //    ShipmentId = IdGenerate,
+                //    Type = ShipmentAddressType.SenderAddress,
+                //    Address = addr.Address,
+                //    City = addr.City,
+                //    Code = addr.Code,
+                //    District = addr.District,
+                //    Name = addr.Name,
+                //    CreateAt = DateTime.UtcNow
+                //}).ToList()
             };
 
             await _shipmentRepository.AddAsync(shipment);

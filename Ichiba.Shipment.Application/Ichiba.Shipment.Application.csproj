@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Folder Include="Carriers\Queries\" />
     <Folder Include="Common\Behavior\" />
     <Folder Include="Common\Exceptions\" />
   </ItemGroup>
