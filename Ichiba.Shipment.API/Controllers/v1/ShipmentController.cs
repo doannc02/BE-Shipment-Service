@@ -1,4 +1,5 @@
-﻿using Ichiba.Shipment.Application.Shipments.Commands;
+﻿using Ichiba.Shipment.Application.Carriers.Queries;
+using Ichiba.Shipment.Application.Shipments.Commands;
 using Ichiba.Shipment.Application.Shipments.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -52,6 +53,13 @@ public class ShipmentController : ControllerBase
 
     [HttpGet("list")]
     public async Task<IActionResult> GetList([FromQuery] GetListShipmentQuery query)
+    {
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetDetail([FromQuery] GetDetailCarrierQuery query)
     {
         var result = await _mediator.Send(query);
         return Ok(result);

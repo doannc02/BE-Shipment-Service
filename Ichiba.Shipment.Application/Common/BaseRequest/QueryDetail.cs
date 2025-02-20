@@ -2,5 +2,5 @@
 
 public class QueryDetail
 {
-    public Guid Id { get; set; }
+    public required Guid Id { get; set; }
 }

@@ -84,7 +84,6 @@ public class ShipmentDTO
 
 public class GetDetailShipmentPackageQuery : QueryDetail, IRequest<BaseEntity<GetDetailShipmentPackageQueryResponse>>
 {
-    public Guid Id { get; set; }
 }
 
 public class GetDetailShipmentPackageQueryHandler : IRequestHandler<GetDetailShipmentPackageQuery, BaseEntity<GetDetailShipmentPackageQueryResponse>>

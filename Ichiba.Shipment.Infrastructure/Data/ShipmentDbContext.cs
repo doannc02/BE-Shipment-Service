@@ -15,7 +15,7 @@ public class ShipmentDbContext : DbContext
     public DbSet<ShipmentAddress> ShipmentAddresses { get; set; }
     public DbSet<ShipmentPackage> ShipmentPackages { get; set; }
     public DbSet<Package> Packages { get; set; }
-
+    public DbSet<Carrier> Carriers { get; set; }
     public DbSet<PackageAddress> PackageAddresses { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
