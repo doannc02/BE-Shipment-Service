@@ -59,7 +59,7 @@ public class ShipmentController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetDetail([FromQuery] GetDetailCarrierQuery query)
+    public async Task<IActionResult> GetDetail([FromQuery] GetShipmentDetailQuery query)
     {
         var result = await _mediator.Send(query);
         return Ok(result);

@@ -1,4 +1,7 @@
-﻿using Ichiba.Shipment.Domain.Consts;
+﻿using Ichiba.Shipment.Application.Common.BaseResponse;
+using Ichiba.Shipment.Application.Packages.Commands;
+using Ichiba.Shipment.Application.Shipments.Queries;
+using Ichiba.Shipment.Domain.Consts;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Domain.Interfaces;
 using Ichiba.Shipment.Infrastructure.Data;
@@ -17,23 +20,16 @@ public class CreateShipmentResponse
     public Guid? Id { get; set; } = Guid.NewGuid();
 }
 
-public class CreateShipmentCommand : IRequest<CreateShipmentResponse>
+public class CreateShipmentCommand : IRequest<BaseEntity<CreateShipmentResponse>>
 {
     public Guid WarehouseId { get; set; }
     public Guid CustomerId { get; set; }
     public string? Note { get; set; }
-    public ShipmentStatus  Status { get; set; } 
-    public decimal TotalAmount { get; set; }
-    //public decimal Weight { get; set; }
-    //public decimal Height { get; set; }
-    //public List<ShipmentAddressDTO>? Addresses { get; set; } = new();
-    public List<Packages> Packages { get; set; } = new();
+    public ShipmentStatus Status { get; set; }
+    public Guid CarrierId { get; set; }
+    public List<Package> Packages { get; set; } = new();
 }
 
-public record Packages
-{
-    public Guid Id { get; set; }
-}
 public record ShipmentAddressDTO
 {
     public string Name { get; set; } = string.Empty;
@@ -51,7 +47,7 @@ public record ShipmentAddressDTO
     public ShipmentAddressType Type { get; set; }
 }
 
-public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentCommand, CreateShipmentResponse>
+public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentCommand, BaseEntity<CreateShipmentResponse>>
 {
     private readonly IShipmentRepository _shipmentRepository;
     private readonly ILogger<CreateShipmentCommandHandler> _logger;
@@ -70,51 +66,63 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
         _dbContext = dbContext;
     }
 
-    public async Task<CreateShipmentResponse> Handle(CreateShipmentCommand request, CancellationToken cancellationToken)
+    public async Task<BaseEntity<CreateShipmentResponse>> Handle(CreateShipmentCommand request, CancellationToken cancellationToken)
     {
-        var IdGenerate = Guid.NewGuid();
+        var shipmentId = Guid.NewGuid();
 
-        // Sinh Shipment Number
-        string shipmentNumber;
-        do
-        {
-            shipmentNumber = await GenShipmentNumber(IdGenerate);
-        }
-        while (await _shipmentRepository.ShipmentNumberExistsAsync(shipmentNumber));
+        // Generate unique shipment number
+        var shipmentNumber = await GenShipmentNumber(shipmentId);
 
-        // Lấy thông tin Customer
-        var currentCustomer = await GetCustomerById(request.CustomerId);
-        if (currentCustomer == null || currentCustomer.Id == Guid.Empty)
-        {
-            throw new ArgumentNullException(nameof(currentCustomer), "Customer information is missing.");
-        }
+        // Validate required entities
+        var validationResult = await ValidateEntities(request, cancellationToken);
+        if (validationResult != null) return validationResult;
 
-        var packageIds = request.Packages.Select(p => p.Id).ToList();
+        // Fetch customer and its default address
+        var customer = await _customerService.GetDetailCustomer(request.CustomerId);
+        if (customer == null)
+            return ErrorResponse("Customer not found.");
 
-        // Kiểm tra package có hợp lệ không
-        var packages = await GetValidPackages(packageIds);
+        var defaultAddress = await GetCustomerDefaultAddress(request.CustomerId, cancellationToken);
+        if (defaultAddress == null)
+            return ErrorResponse("Customer has not selected a default shipping address.");
 
-        // Tính tổng Height và Weight từ các Package
-        var totalHeight = packages.Sum(pkg => pkg.Height); // Tổng chiều cao
-        var totalWeight = packages.Sum(pkg => pkg.Weight); // Tổng trọng lượng
+        // Fetch warehouse
+        var warehouse = await _dbContext.Warehouses.AsNoTracking()
+            .FirstOrDefaultAsync(w => w.Id == request.WarehouseId, cancellationToken);
+        if (warehouse == null)
+            return ErrorResponse("Warehouse not found.");
 
-        // Tạo ShipmentAddresses từ Package hoặc Customer
-        var shipmentAddresses = await GetShipmentAddresses(packages, currentCustomer, request.CustomerId, IdGenerate);
+        // Fetch carrier
+        var carrier = await _dbContext.Carriers
+            .FirstOrDefaultAsync(i => i.Id == request.CarrierId, cancellationToken);
+        if (carrier == null)
+            return ErrorResponse("Carrier not found.");
 
-        // Tạo các bản ghi ShipmentPackage
+        // Process packages (either existing or new)
+        var packages = await ProcessPackages(request.Packages, customer, warehouse, defaultAddress);
+
+        if (packages.Count == 0)
+            return ErrorResponse("No valid packages found.");
+
+        var totalHeight = packages.Sum(pkg => pkg.Height);
+        var totalWeight = packages.Sum(pkg => pkg.Weight);
+
+        var shipmentAddresses = await GetShipmentAddressesFromPackages(packages, shipmentId);
+
         var shipmentPackages = packages.Select(pkg => new ShipmentPackage
         {
             Id = Guid.NewGuid(),
-            ShipmentId = IdGenerate,
+            ShipmentId = shipmentId,
             PackageId = pkg.Id,
             CreateAt = DateTime.UtcNow
         }).ToList();
 
-        // Tạo Shipment Entity
-        var shipment = new ShipmentEntity()
+        // Create the shipment
+        var shipment = new ShipmentEntity
         {
-            Id = IdGenerate,
+            Id = shipmentId,
             CustomerId = request.CustomerId,
+            CarrierId = request.CarrierId,
             WarehouseId = request.WarehouseId,
             ShipmentNumber = shipmentNumber,
             CreateAt = DateTime.UtcNow,
@@ -122,85 +130,113 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
             Status = ShipmentStatus.ShipmentCreated,
             Addresses = shipmentAddresses,
             ShipmentPackages = shipmentPackages,
-            Height = totalHeight, 
-            Weight = totalWeight  
+            Height = totalHeight,
+            Weight = totalWeight,
         };
 
-        // Lưu Shipment vào DB
         await _shipmentRepository.AddAsync(shipment);
         _logger.LogInformation($"Shipment {shipmentNumber} created successfully.");
 
-        return new CreateShipmentResponse()
+        return new BaseEntity<CreateShipmentResponse>
         {
-            Id = shipment.Id
+            Status = true,
+            Data = new CreateShipmentResponse { Id = shipment.Id },
+            Message = "Create successfully"
         };
     }
 
-    private async Task<List<Package>> GetValidPackages(List<Guid> packageIds)
+    private async Task<List<Package>> ProcessPackages(List<Package> incomingPackages, CustomerEntityView customer, Warehouse warehouse, CustomerAddressView defaultAddress)
     {
-        var existingShipmentPackages = await _dbContext.ShipmentPackages
-            .Where(sp => packageIds.Contains(sp.PackageId))
-            .ToListAsync();
+        var packages = new List<Package>();
+        var packageAddresses = CreatePackageAddresses(warehouse, defaultAddress, customer);
 
-        if (existingShipmentPackages.Any())
+        foreach (var incomingPackage in incomingPackages)
         {
-            throw new ArgumentException("Some packages are already assigned to another shipment.");
-        }
+            var existingPackage = await _dbContext.Packages
+                .FirstOrDefaultAsync(p => p.Id == incomingPackage.Id && p.CustomerId == customer.Id);
 
-        var packages = await _dbContext.Packages
-            .Where(p => packageIds.Contains(p.Id) && p.DeleteAt == null).Include(i => i.PackageAdresses)
-            .ToListAsync();
+            if (existingPackage == null)
+            {
+                var newPackage = new Package
+                {
+                    Id = incomingPackage.Id,
+                    CustomerId = customer.Id,
+                    PackageAdresses = packageAddresses,
+                    CreateAt = DateTime.UtcNow
+                };
 
-        if (!packages.Any())
-        {
-            throw new ArgumentException("No valid packages found.");
+                await _dbContext.Packages.AddAsync(newPackage);
+                packages.Add(newPackage);
+            }
+            else
+            {
+                packages.Add(existingPackage);
+            }
         }
 
         return packages;
     }
 
-    private async Task<List<ShipmentAddress>> GetShipmentAddresses(List<Package> packages, CustomerEntityView currentCustomer, Guid customerId, Guid shipmentId)
+    private List<PackageAddress> CreatePackageAddresses(Warehouse warehouse, CustomerAddressView defaultAddress, CustomerEntityView customer)
     {
-        List<ShipmentAddress> shipmentAddresses = new List<ShipmentAddress>();
-
-        if (packages.Any())
+        return new List<PackageAddress>
         {
-            // Kiểm tra nếu PackageAdresses không null
-            shipmentAddresses.AddRange(packages
-                .Where(pkg => pkg.PackageAdresses != null) // Kiểm tra PackageAdresses không phải null
-                .SelectMany(pkg => pkg.PackageAdresses
-                    .Where(addr => addr != null) // Kiểm tra nếu Address trong PackageAdresses không null
-                    .Select(addr => new ShipmentAddress
-                    {
-                        Id = Guid.NewGuid(),
-                        ShipmentId = shipmentId,
-                        Type = addr.Type,
-                        Address = addr.Address,
-                        City = addr.City,
-                        District = addr.District,
-                        Ward = addr.Ward,
-                        Code = addr.Code,
-                        Name = addr.Name,
-                        CreateAt = DateTime.UtcNow
-                    })).ToList());
-        }
-        else
-        {
-            // Nếu không có package, lấy địa chỉ từ Customer
-            shipmentAddresses.AddRange(currentCustomer.Addresses.Select(addr => new ShipmentAddress
+            new PackageAddress
             {
-                Id = Guid.NewGuid(),
-                ShipmentId = shipmentId,
-                Type = ShipmentAddressType.ReceiveAddress,
-                Address = addr.Address,
-                City = addr.City,
-                District = addr.District,
-                Ward = addr.Ward,
-                CreateAt = DateTime.UtcNow
-            }).ToList());
+                Name = "Warehouse",
+                Phone = warehouse.Phone,
+                Address = warehouse.Address,
+                City = warehouse.City,
+                District = warehouse.District,
+                Ward = warehouse.Ward,
+                PostCode = warehouse.PostCode,
+                Type = ShipmentAddressType.SenderAddress
+            },
+            new PackageAddress
+            {
+                Name = "User",
+                Phone = customer.PhoneNumber,
+                Address = defaultAddress.Address,
+                City = defaultAddress.City,
+                District = defaultAddress.District,
+                Ward = defaultAddress.Ward,
+                Type = ShipmentAddressType.ReceiveAddress
+            }
+        };
+    }
+
+    private async Task<List<ShipmentAddress>> GetShipmentAddressesFromPackages(List<Package> packages, Guid shipmentId)
+    {
+        var shipmentAddresses = new List<ShipmentAddress>();
+
+        foreach (var package in packages)
+        {
+            var senderAddress = package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.SenderAddress);
+            var receiverAddress = package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.ReceiveAddress);
+
+            AddShipmentAddress(shipmentAddresses, senderAddress, shipmentId, ShipmentAddressType.SenderAddress);
+            AddShipmentAddress(shipmentAddresses, receiverAddress, shipmentId, ShipmentAddressType.ReceiveAddress);
         }
 
         return shipmentAddresses;
+    }
+
+    private void AddShipmentAddress(List<ShipmentAddress> shipmentAddresses, PackageAddress address, Guid shipmentId, ShipmentAddressType type)
+    {
+        if (address != null)
+        {
+            shipmentAddresses.Add(new ShipmentAddress
+            {
+                Id = Guid.NewGuid(),
+                ShipmentId = shipmentId,
+                Type = type,
+                Address = address.Address,
+                City = address.City,
+                District = address.District,
+                Ward = address.Ward,
+                CreateAt = DateTime.UtcNow
+            });
+        }
     }
 
     private async Task<string> GenShipmentNumber(Guid guid)
@@ -211,9 +247,28 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
         return $"{prefix}{datePart}{valueSignature}";
     }
 
-    private async Task<CustomerEntityView> GetCustomerById(Guid idCustomer)
+    private async Task<BaseEntity<CreateShipmentResponse>> ValidateEntities(CreateShipmentCommand request, CancellationToken cancellationToken)
     {
-        return await _customerService.GetDetailCustomer(idCustomer);
+        if (!await _dbContext.Warehouses.AnyAsync(w => w.Id == request.WarehouseId, cancellationToken))
+            return ErrorResponse("Warehouse not found.");
+
+        if (!await _dbContext.Carriers.AnyAsync(c => c.Id == request.CarrierId, cancellationToken))
+            return ErrorResponse("Carrier not found.");
+
+        if (await _customerService.GetDetailCustomer(request.CustomerId) == null)
+            return ErrorResponse("Customer not found.");
+
+        return null;
+    }
+
+    private async Task<CustomerAddressView> GetCustomerDefaultAddress(Guid customerId, CancellationToken cancellationToken)
+    {
+        var customer = await _customerService.GetDetailCustomer(customerId);
+        return customer?.Addresses.FirstOrDefault(a => a.IsDefaultAddress);
+    }
+
+    private BaseEntity<CreateShipmentResponse> ErrorResponse(string message)
+    {
+        return new BaseEntity<CreateShipmentResponse> { Status = false, Message = message };
     }
 }
-

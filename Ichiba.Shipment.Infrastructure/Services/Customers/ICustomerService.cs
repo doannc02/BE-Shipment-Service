@@ -9,5 +9,5 @@ public interface ICustomerService
 public interface ICustomerBatchLookupService
 {
     Task<Dictionary<Guid, CustomerEntityView>> GetListCustomerByIds(List<Guid> CustomerIds);
-
+    Task<Dictionary<Guid, CustomerAddressView>> GetListAddressByCustomerIds(List<Guid> CustomerIds);
 }

@@ -81,6 +81,47 @@ public class CustomerService : ICustomerService, ICustomerBatchLookupService
         }
     }
 
+    public async Task<Dictionary<Guid, CustomerAddressView>> GetListAddressByCustomerIds(List<Guid> customerIds)
+    {
+        if (customerIds == null || !customerIds.Any())
+        {
+            return new Dictionary<Guid, CustomerAddressView>();
+        }
+
+        try
+        {
+            string queryString = string.Join("&", customerIds.Select(id => $"customerIds={id}"));
+            var response = await _httpClient.GetAsync($"/api/cusAddress/by-ids?{queryString}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error retrieving address: {response.StatusCode} - {errorContent}");
+            }
+
+            var jsonString = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"JSON Response: {jsonString}");
+
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new Dictionary<Guid, CustomerAddressView>();
+            }
+
+            var responseJson = JsonConvert.DeserializeObject<Dictionary<Guid, CustomerAddressView>>(jsonString);
+
+            if (responseJson == null)
+            {
+                throw new Exception("Deserialization returned null. Check the JSON structure and CustomerEntityView definition.");
+            }
+
+            return responseJson;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching customer list: {ex.Message}");
+            return new Dictionary<Guid, CustomerAddressView>();
+        }
+    }
 }
 
 

@@ -1,6 +1,6 @@
 ﻿using Ichiba.Shipment.Application.Common.BaseRequest;
 using Ichiba.Shipment.Application.Common.BaseResponse;
-using Ichiba.Shipment.Application.Packages.Commands;
+using Ichiba.Shipment.Application.Common.Mappings;
 using Ichiba.Shipment.Domain.Consts;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Infrastructure.Data;
@@ -16,67 +16,17 @@ public record Customer
     public Guid Id { get; set; }
     public string Name { get; set; }
 }
-public class GetListShipmentQueryResponse
+
+public class CarrierSMView
 {
     public Guid Id { get; set; }
-    public Guid WarehouseId { get; set; }
-    public Customer Customer { get; set; }
-    public string ShipmentNumber { get; set; } = string.Empty;
-    public string? Note { get; set; }
-    public ShipmentStatus Status { get; set; }
-    public decimal TotalAmount { get; set; }
-    public decimal Weight { get; set; }
-    public DateTime CreateAt { get; set; } = DateTime.UtcNow;
-    public Guid? CreateBy { get; set; }
-    public DateTime? UpdateAt { get; set; }
-    public Guid? UpdateBy { get; set; }
-    public DateTime? DeleteAt { get; set; }
-    public Guid? DeleteBy { get; set; }
-    public virtual List<ShipmentAddressSMDto> Addresses { get; set; } = new();
-    public virtual List<PackageSMDto> Packages { get; set; }
+    public string Code { get; set; }
+    public bool? lastmile_tracking { get; set; }
+    public string? logo { get; set; }
+    public ShippingMethod ShippingMethod { get; set; }
+    public CarrierType Type { get; set; }
 }
 
-public class PackageSMDto
-{
-    public Guid CustomerId { get; set; }
-    public virtual List<PackageAddressCreateSMDTO> PackageAddresses {get; set;}
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid WarehouseId { get; set; }
-    public string PackageNumber { get; set; } = string.Empty;
-    public string? Note { get; set; }
-    public PackageStatus Status { get; set; }
-    public decimal Length { get; set; }
-    public decimal Width { get; set; }
-    public decimal Height { get; set; }
-    public decimal Weight { get; set; }
-}
-public record ShipmentAddressSMDto
-{
-    public Guid Id { get; set; }
-    public Guid ShipmentId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? PrefixPhone { get; set; }
-    public string? PhoneNumber { get; set; }
-    public string? Code { get; set; }
-    public string? Phone { get; set; }
-    public string? City { get; set; }
-    public string? District { get; set; }
-    public string? Ward { get; set; }
-    public string? PostCode { get; set; }
-    public string Address { get; set; } = string.Empty;
-    public ShipmentAddressType Type { get; set; }
-    public DateTime CreateAt { get; set; } = DateTime.UtcNow;
-
-}
-
-public record ShipmentPackageDto
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid ShipmentId { get; set; }
-    public Guid PackageId { get; set; }
-    public DateTime CreateAt { get; set; } = DateTime.UtcNow;
-    public Guid? CreateBy { get; set; }
-}
 
 public class PackageAddressCreateSMDTO
 {
@@ -106,138 +56,142 @@ public class PackageAddressCreateSMDTO
     public DateTime? DeliveryDate { get; set; }
     public string SearchIndex { get; set; } = string.Empty;
 }
-public class GetListShipmentQuery : QueryPage, IRequest<PageResponse<GetListShipmentQueryResponse>>
+public class GetListShipmentQuery : QueryPage, IRequest<PageResponse<GetShipmentDetailQueryResponse>>
 {
 }
 
-public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery, PageResponse<GetListShipmentQueryResponse>>
+public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery, PageResponse<GetShipmentDetailQueryResponse>>
 {
     private readonly ShipmentDbContext _dbContext;
-    private readonly ICustomerService _customerService;
     private readonly ICustomerBatchLookupService _customerBatchLookupService;
     private readonly ILogger<GetListShipmentQueryHandler> _logger;
     public GetListShipmentQueryHandler(ShipmentDbContext dbContext, ICustomerService customerService, ICustomerBatchLookupService customerBatchLookupService, ILogger<GetListShipmentQueryHandler> logger)
     {
         _dbContext = dbContext;
         _logger = logger;
-        _customerService = customerService;
         _customerBatchLookupService = customerBatchLookupService;
     }
 
-    public async Task<PageResponse<GetListShipmentQueryResponse>> Handle(GetListShipmentQuery query, CancellationToken cancellationToken)
+    public async Task<PageResponse<GetShipmentDetailQueryResponse>> Handle(GetListShipmentQuery query, CancellationToken cancellationToken)
     {
         try
         {
+            // Truy vấn tất cả shipment
             var queryable = _dbContext.Shipments
-                                .AsNoTracking()
-                                .Include(c => c.Addresses)
-                                .Include(c => c.ShipmentPackages)
-                                .ThenInclude(sp => sp.Package)
-                                .ThenInclude(addr => addr.PackageAdresses)
-                                .OrderBy(c => c.CreateAt);
+                .AsNoTracking()
+                .Include(c => c.Addresses)
+                .Include(c => c.ShipmentPackages)
+                    .ThenInclude(sp => sp.Package)
+                    .ThenInclude(addr => addr.PackageAdresses)
+                .OrderBy(c => c.CreateAt);
 
             var totalElements = await queryable.CountAsync(cancellationToken);
-
-            var shipments = await queryable
-                .Skip((query.Page - 1) * query.Size)
-                .Take(query.Size)
-                .ToListAsync(cancellationToken);
-
-            var customerIds = shipments.Select(s => s.CustomerId).Distinct().ToList();
-            var customers = await _customerBatchLookupService.GetListCustomerByIds(customerIds);
-
-            return new PageResponse<GetListShipmentQueryResponse>
+            if (totalElements > 0)
             {
-                Status = true,
-                Message = "Get list shipment success",
-                Data = new Data<GetListShipmentQueryResponse>
-                {
-                    Content = shipments.Select(s => new GetListShipmentQueryResponse
-                    {
-                        Id = s.Id,
-                        Customer = customers.ContainsKey(s.CustomerId) ? new Customer
-                        {
-                            Id = s.CustomerId,
-                            Name = customers[s.CustomerId].FullName
-                        } : null!,
-                        Addresses = s.Addresses.Select(a => new ShipmentAddressSMDto
-                        {
-                            Id = a.Id,
-                            District = a.District,
-                            Name = a.Name,
-                            Phone = a.Phone,
-                            PhoneNumber = a.PhoneNumber,
-                            PostCode = a.PostCode,
-                            PrefixPhone = a.PrefixPhone,
-                            ShipmentId = a.ShipmentId,
-                            Ward = a.Ward,
-                            Type = a.Type,
-                            Address = a.Address,
-                            City = a.City,
-                            Code = a.Code,
-                            CreateAt = a.CreateAt
-                        }).ToList(),
-                        Packages = s.ShipmentPackages.Select(sp => new PackageSMDto
-                        {
-                            Id = sp.Package.Id,
-                            PackageNumber = sp.Package.PackageNumber,
-                            Note = sp.Package.Note,
-                            Status = sp.Package.Status,
-                            Weight = sp.Package.Weight,
-                            Width = sp.Package.Width,
-                            Height = sp.Package.Height,
-                            Length = sp.Package.Length,
-                            WarehouseId = sp.Package.WarehouseId,
-                            CustomerId = sp.Package.CustomerId,
-                            PackageAddresses = sp.Package.PackageAdresses.Select(p => new PackageAddressCreateSMDTO
-                            {
-                                Id = Guid.NewGuid(),
-                                District = p.District,
-                                Longitude = p.Longitude,
-                                Latitude = p.Latitude,
-                                EstimatedDeliveryDate = p.EstimatedDeliveryDate,
-                                DeliveryInstructions = p.DeliveryInstructions,
-                                PackageId = sp.Package.Id,
-                                Name = p.Name,
-                                Phone = p.Phone,
-                                PrefixPhone = p.PrefixPhone,
-                                PostCode = p.PostCode,
-                                Ward = p.Ward,
-                                Status = p.Status,
-                                Address = p.Address,
-                                City = p.City,
-                                Code = p.Code,
-                                Country = p.Country,
-                                UpdatedAt = DateTime.UtcNow,
-                                UpdatedBy = p.UpdateBy
-                            }).ToList()
-                        }).ToList(),
-                        ShipmentNumber = s.ShipmentNumber,
-                        Note = s.Note,
-                        Status = s.Status,
-                        TotalAmount = s.TotalAmount,
-                        Weight = s.Weight,
-                        WarehouseId = s.WarehouseId
-                    }).ToList(),
-                    Page = query.Page,
-                    Size = query.Size,
-                    TotalElements = totalElements,
-                    TotalPages = (int)Math.Ceiling(totalElements / (double)query.Size),
-                    NumberOfElements = shipments.Count
-                }
-            };
+                // Lấy danh sách tất cả các CarrierId từ các Shipment
+                var carrierIds = await queryable.Select(s => s.CarrierId).Distinct().ToListAsync(cancellationToken);
 
+                // Lấy thông tin Carrier cho tất cả các CarrierId đã tìm thấy
+                var carriers = await _dbContext.Carriers
+                    .Where(c => carrierIds.Contains(c.Id))
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+
+                // hashmap id - carrier
+                var carrierDictionary = carriers.ToDictionary(c => c.Id);
+
+                // Lấy danh sách Shipment
+                var shipments = await queryable
+                    .Skip((query.Page - 1) * query.Size)
+                    .Take(query.Size)
+                    .ToListAsync(cancellationToken);
+
+                // Lấy các CustomerId để tra cứu khách hàng
+                var customerIds = shipments.Select(s => s.CustomerId).Distinct().ToList();
+                var customers = await _customerBatchLookupService.GetListCustomerByIds(customerIds);
+
+                return new PageResponse<GetShipmentDetailQueryResponse>
+                {
+                    Status = true,
+                    Message = "Get list shipment success",
+                    Data = new Data<GetShipmentDetailQueryResponse>
+                    {
+                        Content = shipments.Select(s => new GetShipmentDetailQueryResponse
+                        {
+                            Id = s.Id,
+                            Customer = customers.ContainsKey(s.CustomerId) ? new Customer
+                            {
+                                Id = s.CustomerId,
+                                Name = customers[s.CustomerId].FullName
+                            } : null!,
+                            AddressReceive = ShipmentAddressMapping.MapShipmentAddress(s.Addresses.FirstOrDefault(a => a.Type == ShipmentAddressType.ReceiveAddress)),
+                            AddressSender = ShipmentAddressMapping.MapShipmentAddress(s.Addresses.FirstOrDefault(a => a.Type == ShipmentAddressType.SenderAddress)),
+                            Packages = s.ShipmentPackages.Select(sp => new PackageSMDto
+                            {
+                                Id = sp.Package.Id,
+                                PackageNumber = sp.Package.PackageNumber,
+                                Note = sp.Package.Note,
+                                Status = sp.Package.Status,
+                                Weight = sp.Package.Weight,
+                                Width = sp.Package.Width,
+                                Height = sp.Package.Height,
+                                Length = sp.Package.Length,
+                                WarehouseId = sp.Package.WarehouseId,
+                                CustomerId = sp.Package.CustomerId,
+                                AddressSender = PackageAddressMapping.MapPackageAddress( sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.SenderAddress)),
+                                AddressReceive = PackageAddressMapping.MapPackageAddress( sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.ReceiveAddress)),
+                            }).ToList(),
+                            ShipmentNumber = s.ShipmentNumber,
+                            Note = s.Note,
+                            Status = s.Status,
+                            TotalAmount = s.TotalAmount,
+                            Weight = s.Weight,                         
+                            Carrier = carrierDictionary.ContainsKey(s.CarrierId) ? new CarrierSMView
+                            {
+                                Id = carrierDictionary[s.CarrierId].Id,
+                                Code = carrierDictionary[s.CarrierId].Code,
+                                lastmile_tracking = carrierDictionary[s.CarrierId].lastmile_tracking,
+                                logo = carrierDictionary[s.CarrierId].logo,
+                                ShippingMethod = carrierDictionary[s.CarrierId].ShippingMethod,
+                                Type = carrierDictionary[s.CarrierId].Type
+                            } : null!
+                        }).ToList(),
+                        Page = query.Page,
+                        Size = query.Size,
+                        TotalElements = totalElements,
+                        TotalPages = (int)Math.Ceiling(totalElements / (double)query.Size),
+                        NumberOfElements = shipments.Count
+                    }
+                };
+            }
+            else
+            {
+                return new PageResponse<GetShipmentDetailQueryResponse>
+                {
+                    Status = false,
+                    Message = "No shipments found.",
+                    Data = new Data<GetShipmentDetailQueryResponse>
+                    {
+                        Content = new List<GetShipmentDetailQueryResponse>(),
+                        Page = query.Page,
+                        Size = query.Size,
+                        TotalElements = 0,
+                        TotalPages = 0,
+                        NumberOfElements = 0
+                    }
+                };
+            }
         }
-        catch (Exception Ex)
+        catch (Exception ex)
         {
-            _logger.LogError(Ex, "Error fetching shipment list");
-            return new PageResponse<GetListShipmentQueryResponse>
+            _logger.LogError(ex, "Error fetching shipment list");
+            return new PageResponse<GetShipmentDetailQueryResponse>
             {
                 Status = false,
                 Message = "An error occurred while fetching customer list.",
-                Data = new Data<GetListShipmentQueryResponse>
+                Data = new Data<GetShipmentDetailQueryResponse>
                 {
-                    Content = new List<GetListShipmentQueryResponse>(),
+                    Content = new List<GetShipmentDetailQueryResponse>(),
                     Page = query.Page,
                     Size = query.Size,
                     TotalElements = 0,
@@ -247,4 +201,5 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
             };
         }
     }
+
 }

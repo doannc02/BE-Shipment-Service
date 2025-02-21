@@ -1,11 +1,13 @@
 ﻿using Ichiba.Shipment.Application.Common.BaseResponse;
-using Ichiba.Shipment.Application.Shipments.Queries;
+using Ichiba.Shipment.Application.Common.Mappings;
+using Ichiba.Shipment.Domain.Consts;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Infrastructure.Data;
 using Ichiba.Shipment.Infrastructure.Services.Customers;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Net;
 
 namespace Ichiba.Shipment.Application.Shipments.Queries
 {
@@ -24,8 +26,45 @@ namespace Ichiba.Shipment.Application.Shipments.Queries
         public decimal TotalAmount { get; set; }
         public decimal Weight { get; set; }
         public DateTime CreateAt { get; set; }
-        public List<ShipmentAddressSMDto> Addresses { get; set; } = new List<ShipmentAddressSMDto>();
+        public ShipmentAddressSMDto AddressSender { get; set; }
+        public ShipmentAddressSMDto AddressReceive { get; set; }
         public List<PackageSMDto> Packages { get; set; } = new List<PackageSMDto>();
+        public CarrierSMView Carrier { get; set; }
+    }
+
+    public class PackageSMDto
+    {
+        public Guid CustomerId { get; set; }
+        // public virtual List<PackageAddressCreateSMDTO> PackageAddresses {get; set;}
+        public PackageAddressCreateSMDTO AddressSender { get; set; }
+        public PackageAddressCreateSMDTO AddressReceive { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid WarehouseId { get; set; }
+        public string PackageNumber { get; set; } = string.Empty;
+        public string? Note { get; set; }
+        public PackageStatus Status { get; set; }
+        public decimal Length { get; set; }
+        public decimal Width { get; set; }
+        public decimal Height { get; set; }
+        public decimal Weight { get; set; }
+    }
+    public record ShipmentAddressSMDto
+    {
+        public Guid Id { get; set; }
+        public Guid ShipmentId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? PrefixPhone { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Code { get; set; }
+        public string? Phone { get; set; }
+        public string? City { get; set; }
+        public string? District { get; set; }
+        public string? Ward { get; set; }
+        public string? PostCode { get; set; }
+        public string Address { get; set; } = string.Empty;
+        public ShipmentAddressType Type { get; set; }
+        public DateTime CreateAt { get; set; } = DateTime.UtcNow;
+
     }
 
     public class GetShipmentDetailQueryHandler : IRequestHandler<GetShipmentDetailQuery, BaseEntity<GetShipmentDetailQueryResponse>>
@@ -48,13 +87,13 @@ namespace Ichiba.Shipment.Application.Shipments.Queries
         {
             try
             {
-                // Truy vấn chi tiết Shipment từ DB
+                // Truy vấn chi tiết Shipment từ DB, chỉ gọi một lần và lấy các địa chỉ vào bộ nhớ
                 var shipment = await _dbContext.Shipments
                     .AsNoTracking()
                     .Include(s => s.Addresses)
                     .Include(s => s.ShipmentPackages)
-                    .ThenInclude(sp => sp.Package)
-                    .ThenInclude(pkg => pkg.PackageAdresses)
+                        .ThenInclude(sp => sp.Package)
+                        .ThenInclude(pkg => pkg.PackageAdresses)
                     .FirstOrDefaultAsync(s => s.Id == request.ShipmentId, cancellationToken);
 
                 if (shipment == null)
@@ -70,6 +109,15 @@ namespace Ichiba.Shipment.Application.Shipments.Queries
                 // Lấy thông tin khách hàng
                 var customer = await _customerService.GetDetailCustomer(shipment.CustomerId);
 
+                // Lấy thông tin Carrier từ bảng Carrier
+                var carrier = await _dbContext.Carriers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == shipment.CarrierId, cancellationToken);
+
+                // Tách địa chỉ Sender và Receive chỉ trong một lần truy vấn
+                var addressSender = shipment.Addresses.FirstOrDefault(addr => addr.Type == ShipmentAddressType.SenderAddress);
+                var addressReceive = shipment.Addresses.FirstOrDefault(addr => addr.Type == ShipmentAddressType.ReceiveAddress);
+
                 // Chuẩn bị dữ liệu response
                 var response = new GetShipmentDetailQueryResponse
                 {
@@ -84,23 +132,12 @@ namespace Ichiba.Shipment.Application.Shipments.Queries
                         Id = customer.Id,
                         Name = customer.FullName
                     } : null!,
-                    Addresses = shipment.Addresses.Select(a => new ShipmentAddressSMDto
-                    {
-                        Id = a.Id,
-                        ShipmentId = a.ShipmentId,
-                        Name = a.Name,
-                        Phone = a.Phone,
-                        PhoneNumber = a.PhoneNumber,
-                        PostCode = a.PostCode,
-                        PrefixPhone = a.PrefixPhone,
-                        Ward = a.Ward,
-                        District = a.District,
-                        City = a.City,
-                        Address = a.Address,
-                        Code = a.Code,
-                        Type = a.Type,
-                        CreateAt = a.CreateAt
-                    }).ToList(),
+
+                    // Set địa chỉ nhận hàng (AddressReceive)
+                    AddressReceive = ShipmentAddressMapping.MapShipmentAddress(addressReceive),
+                    // Set địa chỉ gửi hàng (AddressSender)
+                    AddressSender = ShipmentAddressMapping.MapShipmentAddress(addressSender),
+                    // Chuẩn bị danh sách các Package
                     Packages = shipment.ShipmentPackages.Select(sp => new PackageSMDto
                     {
                         Id = sp.Package.Id,
@@ -113,22 +150,20 @@ namespace Ichiba.Shipment.Application.Shipments.Queries
                         Length = sp.Package.Length,
                         WarehouseId = sp.Package.WarehouseId,
                         CustomerId = sp.Package.CustomerId,
-                        PackageAddresses = sp.Package.PackageAdresses.Select(pa => new PackageAddressCreateSMDTO
-                        {
-                            Id = pa.Id,
-                            PackageId = pa.PackageId,
-                            Name = pa.Name,
-                            Address = pa.Address,
-                            City = pa.City,
-                            District = pa.District,
-                            Ward = pa.Ward,
-                            Status = pa.Status,
-                            Phone = pa.Phone,
-                            PrefixPhone = pa.PrefixPhone,
-                            PostCode = pa.PostCode,
-                            UpdatedAt = DateTime.UtcNow
-                        }).ToList()
-                    }).ToList()
+                        AddressSender = PackageAddressMapping.MapPackageAddress(sp.Package.PackageAdresses.FirstOrDefault(i => i.Type == ShipmentAddressType.SenderAddress)),
+                        AddressReceive = PackageAddressMapping.MapPackageAddress(sp.Package.PackageAdresses.FirstOrDefault(i => i.Type == ShipmentAddressType.ReceiveAddress)),
+                    }).ToList(),
+
+                    // Lấy thông tin Carrier từ dữ liệu đã truy vấn
+                    Carrier = carrier != null ? new CarrierSMView
+                    {
+                        Id = carrier.Id,
+                        Code = carrier.Code,
+                        lastmile_tracking = carrier.lastmile_tracking,
+                        logo = carrier.logo,
+                        ShippingMethod = carrier.ShippingMethod,
+                        Type = carrier.Type
+                    } : null!
                 };
 
                 return new BaseEntity<GetShipmentDetailQueryResponse>
