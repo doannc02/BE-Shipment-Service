@@ -1,9 +1,12 @@
-﻿namespace Ichiba.Shipment.Domain.Entities;
+﻿using Ichiba.Shipment.Domain.Consts;
+
+namespace Ichiba.Shipment.Domain.Entities;
 
 public class Package
 {
     public Guid CustomerId { get; set; }
     public Guid CarrierId { get; set; }
+    public virtual List<PackageProduct> PackageProducts { get; set; }
     public virtual List<PackageAddress> PackageAdresses { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid WarehouseId { get; set; }
@@ -14,6 +17,8 @@ public class Package
     public decimal Width { get; set; }
     public decimal Height { get; set; }
     public decimal Weight { get; set; }
+    public decimal Amount { get; set; }
+    
     public DateTime CreateAt { get; set; } = DateTime.UtcNow;
     public Guid? CreateBy { get; set; }
     public DateTime? UpdateAt { get; set; }
@@ -22,12 +27,5 @@ public class Package
     public Guid? DeleteBy { get; set; }
 }
 
-public enum PackageStatus
-{
-    Pending,
-    Processing,
-    Shipped,
-    Delivered,
-    Returned,
-    Cancelled
-}
+
+

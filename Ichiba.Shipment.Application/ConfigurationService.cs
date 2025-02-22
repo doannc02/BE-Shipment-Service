@@ -12,7 +12,7 @@ public static class ConfigurationService
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection service)
     {
-        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentsCommandHandler).Assembly));
+        service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateMultiShipmentsCommandHandler).Assembly));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentCommandHandler).Assembly));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(DeleteShipmentCommandHandler).Assembly));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(UpdateShipmentCommandHandler).Assembly));

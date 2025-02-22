@@ -1,6 +1,5 @@
 ﻿using Ichiba.Shipment.Application.Common.BaseResponse;
-using Ichiba.Shipment.Application.Packages.Commands;
-using Ichiba.Shipment.Application.Shipments.Queries;
+using Ichiba.Shipment.Application.Shipments.Helper;
 using Ichiba.Shipment.Domain.Consts;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Domain.Interfaces;
@@ -14,7 +13,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace Ichiba.Shipment.Application.Shipments.Commands;
-
 public class CreateShipmentResponse
 {
     public Guid? Id { get; set; } = Guid.NewGuid();
@@ -27,7 +25,24 @@ public class CreateShipmentCommand : IRequest<BaseEntity<CreateShipmentResponse>
     public string? Note { get; set; }
     public ShipmentStatus Status { get; set; }
     public Guid CarrierId { get; set; }
-    public List<Package> Packages { get; set; } = new();
+    public List<PackageCreateSM> Packages { get; set; } = new();
+}
+
+public class PackageCreateSM
+{
+    public Guid CustomerId { get; set; }
+    public Guid CarrierId { get; set; }
+    public Guid Id { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string PackageNumber { get; set; } = string.Empty;
+    public string? Note { get; set; }
+    public PackageStatus Status { get; set; }
+    public decimal Length { get; set; }
+    public decimal Width { get; set; }
+    public decimal Height { get; set; }
+    public decimal Weight { get; set; }
+    public DateTime CreateAt { get; set; } = DateTime.UtcNow;
+    public Guid? CreateBy { get; set; }
 }
 
 public record ShipmentAddressDTO
@@ -53,7 +68,6 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
     private readonly ILogger<CreateShipmentCommandHandler> _logger;
     private readonly ICustomerService _customerService;
     private readonly ShipmentDbContext _dbContext;
-
     public CreateShipmentCommandHandler(
         IShipmentRepository shipmentRepository,
         ILogger<CreateShipmentCommandHandler> logger,
@@ -70,14 +84,11 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
     {
         var shipmentId = Guid.NewGuid();
 
-        // Generate unique shipment number
-        var shipmentNumber = await GenShipmentNumber(shipmentId);
+        var shipmentNumber = await GenerateIdShipment.GenShipmentNumber(shipmentId);
 
-        // Validate required entities
         var validationResult = await ValidateEntities(request, cancellationToken);
         if (validationResult != null) return validationResult;
 
-        // Fetch customer and its default address
         var customer = await _customerService.GetDetailCustomer(request.CustomerId);
         if (customer == null)
             return ErrorResponse("Customer not found.");
@@ -86,19 +97,16 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
         if (defaultAddress == null)
             return ErrorResponse("Customer has not selected a default shipping address.");
 
-        // Fetch warehouse
         var warehouse = await _dbContext.Warehouses.AsNoTracking()
             .FirstOrDefaultAsync(w => w.Id == request.WarehouseId, cancellationToken);
         if (warehouse == null)
             return ErrorResponse("Warehouse not found.");
 
-        // Fetch carrier
         var carrier = await _dbContext.Carriers
             .FirstOrDefaultAsync(i => i.Id == request.CarrierId, cancellationToken);
         if (carrier == null)
             return ErrorResponse("Carrier not found.");
 
-        // Process packages (either existing or new)
         var packages = await ProcessPackages(request.Packages, customer, warehouse, defaultAddress);
 
         if (packages.Count == 0)
@@ -106,6 +114,7 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
 
         var totalHeight = packages.Sum(pkg => pkg.Height);
         var totalWeight = packages.Sum(pkg => pkg.Weight);
+        var totalAmount = packages.Sum(pkg => pkg.Amount);
 
         var shipmentAddresses = await GetShipmentAddressesFromPackages(packages, shipmentId);
 
@@ -117,13 +126,12 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
             CreateAt = DateTime.UtcNow
         }).ToList();
 
-        // Create the shipment
         var shipment = new ShipmentEntity
         {
             Id = shipmentId,
             CustomerId = request.CustomerId,
-            CarrierId = request.CarrierId,
-            WarehouseId = request.WarehouseId,
+            CarrierId = carrier.Id,
+            WarehouseId = warehouse.Id,
             ShipmentNumber = shipmentNumber,
             CreateAt = DateTime.UtcNow,
             Note = request.Note,
@@ -132,6 +140,7 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
             ShipmentPackages = shipmentPackages,
             Height = totalHeight,
             Weight = totalWeight,
+            TotalAmount = totalAmount
         };
 
         await _shipmentRepository.AddAsync(shipment);
@@ -145,7 +154,7 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
         };
     }
 
-    private async Task<List<Package>> ProcessPackages(List<Package> incomingPackages, CustomerEntityView customer, Warehouse warehouse, CustomerAddressView defaultAddress)
+    private async Task<List<Package>> ProcessPackages(List<PackageCreateSM> incomingPackages, CustomerEntityView customer, Warehouse warehouse, CustomerAddressView defaultAddress)
     {
         var packages = new List<Package>();
         var packageAddresses = CreatePackageAddresses(warehouse, defaultAddress, customer);
@@ -157,12 +166,23 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
 
             if (existingPackage == null)
             {
+                var packageNumber = await GeneratePackageNumberAsync();
+
                 var newPackage = new Package
                 {
+                    PackageNumber = packageNumber,
                     Id = incomingPackage.Id,
+                    Height = incomingPackage.Height,
+                    WarehouseId = warehouse.Id,
+                    Weight = incomingPackage.Weight,
+                    Width = incomingPackage.Width,
+                    Length = incomingPackage.Length,
+                    Note = incomingPackage.Note,
                     CustomerId = customer.Id,
                     PackageAdresses = packageAddresses,
-                    CreateAt = DateTime.UtcNow
+                    CreateAt = DateTime.UtcNow,
+                    CarrierId = incomingPackage.CarrierId,
+                    CreateBy = incomingPackage.CreateBy,
                 };
 
                 await _dbContext.Packages.AddAsync(newPackage);
@@ -173,8 +193,24 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
                 packages.Add(existingPackage);
             }
         }
-
         return packages;
+    }
+
+    private async Task<string> GeneratePackageNumberAsync()
+    {
+        string datePart = DateTime.UtcNow.ToString("yyMMdd");
+
+        int serialNumber = await _dbContext.Packages
+            .Where(p => p.PackageNumber.StartsWith("PK" + datePart))
+            .CountAsync();
+
+        serialNumber++;
+
+        string serialNumberPart = serialNumber.ToString("D4");
+
+        string packageNumber = $"PK{datePart}{serialNumberPart}";
+
+        return packageNumber;
     }
 
     private List<PackageAddress> CreatePackageAddresses(Warehouse warehouse, CustomerAddressView defaultAddress, CustomerEntityView customer)
@@ -204,7 +240,6 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
             }
         };
     }
-
     private async Task<List<ShipmentAddress>> GetShipmentAddressesFromPackages(List<Package> packages, Guid shipmentId)
     {
         var shipmentAddresses = new List<ShipmentAddress>();
@@ -237,14 +272,6 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
                 CreateAt = DateTime.UtcNow
             });
         }
-    }
-
-    private async Task<string> GenShipmentNumber(Guid guid)
-    {
-        string prefix = "SJA";
-        string datePart = DateTime.UtcNow.ToString("yyMM");
-        string valueSignature = guid.ToString("N").Substring(0, 4);
-        return $"{prefix}{datePart}{valueSignature}";
     }
 
     private async Task<BaseEntity<CreateShipmentResponse>> ValidateEntities(CreateShipmentCommand request, CancellationToken cancellationToken)

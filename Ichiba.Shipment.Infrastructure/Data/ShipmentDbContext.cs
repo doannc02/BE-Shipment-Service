@@ -18,7 +18,7 @@ public class ShipmentDbContext : DbContext
     public DbSet<Carrier> Carriers { get; set; }
     public DbSet<Warehouse> Warehouses { get; set; }
     public DbSet<PackageAddress> PackageAddresses { get; set; }
-
+    public DbSet<PackageProduct> PackageProducts { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql("Host=localhost;Database=logistics_system;Username=postgres;Password=123123");
@@ -52,6 +52,11 @@ public class ShipmentDbContext : DbContext
 
         modelBuilder.Entity<Package>()
             .HasMany(p => p.PackageAdresses)
+            .WithOne(pa => pa.Package)
+            .HasForeignKey(pa => pa.PackageId);
+
+        modelBuilder.Entity<Package>()
+            .HasMany(p => p.PackageProducts)
             .WithOne(pa => pa.Package)
             .HasForeignKey(pa => pa.PackageId);
     }
