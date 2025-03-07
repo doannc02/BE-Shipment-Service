@@ -7,9 +7,10 @@ public enum ShipmentAddressType
     SenderAddress
 }
 
-public enum WarehouseType
+public enum UnitProductType
 {
-
+    Item,
+    Set
 }
 
 public enum CubitUnit

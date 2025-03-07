@@ -1,4 +1,5 @@
-﻿using Ichiba.Shipment.Infrastructure.Data;
+﻿using Ichiba.Shipment.Infrastructure.Connecter.CustomerService;
+using Ichiba.Shipment.Infrastructure.Data;
 using Ichiba.Shipment.Infrastructure.Services.Customers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -13,14 +14,15 @@ namespace Ichiba.Shipment.Infrastructure
         {
             services.AddHttpClient<ICustomerService, CustomerService>(client =>
             {
-                client.BaseAddress = new Uri("https://localhost:7070");
+                client.BaseAddress = new Uri("http://localhost:8053");
             });
 
             services.AddHttpClient<ICustomerBatchLookupService, CustomerService>(client =>
             {
-                client.BaseAddress = new Uri("https://localhost:7070");
+                client.BaseAddress = new Uri("http://localhost:8053");
             });
-
+            services.AddScoped<DaprCustomerService>();
+            services.AddDaprClient();
             services.AddDbContext<ShipmentDbContext>(options =>
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 

@@ -1,13 +1,14 @@
 ﻿using Ichiba.Shipment.Application.Common.BaseRequest;
 using Ichiba.Shipment.Application.Common.BaseResponse;
-using Ichiba.Shipment.Application.Shipments.Queries;
 using Ichiba.Shipment.Domain.Entities;
 using Ichiba.Shipment.Infrastructure.Data;
-using Ichiba.Shipment.Infrastructure.Services.Customers;
+using StackExchange.Redis;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Threading;
+using Newtonsoft.Json;
+
+
 
 namespace Ichiba.Shipment.Application.Carriers.Queries;
 
@@ -29,15 +30,25 @@ public class GetListCarrierQueryHandler : IRequestHandler<GetListCarrierQuery, P
 {
     private readonly ShipmentDbContext _dbContext;
     private readonly ILogger<GetListCarrierQueryHandler> _logger;
-    public GetListCarrierQueryHandler(ShipmentDbContext dbContext, ILogger<GetListCarrierQueryHandler> logger)
+    private readonly IDatabase _cache;
+    public GetListCarrierQueryHandler(ShipmentDbContext dbContext, ILogger<GetListCarrierQueryHandler> logger, IConnectionMultiplexer _redis)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _cache = _redis.GetDatabase(0); 
     }
     public async Task<PageResponse<GetListCarrierQueryResponse>> Handle(GetListCarrierQuery query, CancellationToken cancellationToken)
     {
         try
         {
+            string cacheKey = "carriers_list";
+            var cachedData = await _cache.StringGetAsync(cacheKey);
+            if (!cachedData.IsNullOrEmpty)
+            {
+                var cachedResult = JsonConvert.DeserializeObject<PageResponse<GetListCarrierQueryResponse>>(cachedData);
+                return cachedResult;
+            }
+
             var queryable = _dbContext.Carriers
                                 .AsNoTracking()
                                 .OrderBy(c => c.CreatedDate);
@@ -49,7 +60,7 @@ public class GetListCarrierQueryHandler : IRequestHandler<GetListCarrierQuery, P
                 .Take(query.Size)
                 .ToListAsync(cancellationToken);
 
-            return new PageResponse<GetListCarrierQueryResponse>
+            var result = new PageResponse<GetListCarrierQueryResponse>
             {
                 Status = true,
                 Message = "Get list shipment success",
@@ -71,7 +82,8 @@ public class GetListCarrierQueryHandler : IRequestHandler<GetListCarrierQuery, P
                     NumberOfElements = shipments.Count
                 }
             };
-
+            await _cache.StringSetAsync(cacheKey, JsonConvert.SerializeObject(result), TimeSpan.FromDays(365));
+            return result;
         }
         catch (Exception Ex)
         {

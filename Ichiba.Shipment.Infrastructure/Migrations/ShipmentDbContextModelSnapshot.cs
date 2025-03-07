@@ -86,6 +86,9 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Property<Guid?>("CreateBy")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("CubitUnit")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
@@ -123,6 +126,9 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Property<decimal>("Weight")
                         .HasColumnType("numeric");
 
+                    b.Property<int>("WeightUnit")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("Width")
                         .HasColumnType("numeric");
 
@@ -138,20 +144,18 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Origin")
-                        .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<double>("OriginPrice")
+                    b.Property<double?>("OriginPrice")
                         .HasColumnType("double precision");
 
-                    b.Property<Guid>("PackageId")
+                    b.Property<Guid?>("PackageId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductId")
+                    b.Property<Guid?>("ProductId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("ProductLink")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ProductName")
@@ -161,17 +165,204 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("Tax")
+                        .HasColumnType("numeric");
+
                     b.Property<double>("Total")
                         .HasColumnType("double precision");
 
-                    b.Property<double>("Unit")
-                        .HasColumnType("double precision");
+                    b.Property<int?>("Unit")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("PackageId");
 
+                    b.HasIndex("ProductId");
+
                     b.ToTable("PackageProducts");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool?>("IsHasVariant")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MetaTitle")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("SKU")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdateAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductAttribute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductAttributes");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductAttributeValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductAttributeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductAttributeId");
+
+                    b.ToTable("ProductAttributeValues");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreateAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Height")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("Length")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SKU")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long?>("StockQty")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdateAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Weight")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("Width")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductVariants");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariantAtttributeValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductAttributeValueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductVariantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductAttributeValueId");
+
+                    b.HasIndex("ProductVariantId");
+
+                    b.ToTable("ProductVariantAtttributeValues");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariantImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductVariantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PrroductVariantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductVariantId");
+
+                    b.ToTable("ProductVariantImages");
                 });
 
             modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ShipmentAddress", b =>
@@ -267,6 +458,9 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Property<Guid?>("CreateBy")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("CubitUnit")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
@@ -303,6 +497,9 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
 
                     b.Property<decimal>("Weight")
                         .HasColumnType("numeric");
+
+                    b.Property<int>("WeightUnit")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -346,26 +543,6 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.HasIndex("ShipmentId");
 
                     b.ToTable("ShipmentPackages");
-                });
-
-            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.Tax", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("PackageProductId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PackageProductId");
-
-                    b.ToTable("Tax");
                 });
 
             modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.Warehouse", b =>
@@ -546,11 +723,76 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                 {
                     b.HasOne("Ichiba.Shipment.Domain.Entities.Package", "Package")
                         .WithMany("PackageProducts")
-                        .HasForeignKey("PackageId")
+                        .HasForeignKey("PackageId");
+
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.Product", "Product")
+                        .WithMany("PackageProducts")
+                        .HasForeignKey("ProductId");
+
+                    b.Navigation("Package");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductAttribute", b =>
+                {
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.Product", null)
+                        .WithMany("ProductAttributes")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductAttributeValue", b =>
+                {
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.ProductAttribute", "ProductAttribute")
+                        .WithMany("Values")
+                        .HasForeignKey("ProductAttributeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Package");
+                    b.Navigation("ProductAttribute");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariant", b =>
+                {
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.Product", "Product")
+                        .WithMany("Variants")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariantAtttributeValue", b =>
+                {
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.ProductAttributeValue", "ProductAttributeValue")
+                        .WithMany()
+                        .HasForeignKey("ProductAttributeValueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.ProductVariant", "ProductVariant")
+                        .WithMany("Attributes")
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductAttributeValue");
+
+                    b.Navigation("ProductVariant");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariantImage", b =>
+                {
+                    b.HasOne("Ichiba.Shipment.Domain.Entities.ProductVariant", "ProductVariant")
+                        .WithMany("Images")
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductVariant");
                 });
 
             modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ShipmentAddress", b =>
@@ -583,13 +825,6 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
-            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.Tax", b =>
-                {
-                    b.HasOne("Ichiba.Shipment.Domain.Entities.PackageProduct", null)
-                        .WithMany("Taxes")
-                        .HasForeignKey("PackageProductId");
-                });
-
             modelBuilder.Entity("PackageAddress", b =>
                 {
                     b.HasOne("Ichiba.Shipment.Domain.Entities.Package", "Package")
@@ -608,9 +843,25 @@ namespace Ichiba.Shipment.Infrastructure.Migrations
                     b.Navigation("PackageProducts");
                 });
 
-            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.PackageProduct", b =>
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.Product", b =>
                 {
-                    b.Navigation("Taxes");
+                    b.Navigation("PackageProducts");
+
+                    b.Navigation("ProductAttributes");
+
+                    b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductAttribute", b =>
+                {
+                    b.Navigation("Values");
+                });
+
+            modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ProductVariant", b =>
+                {
+                    b.Navigation("Attributes");
+
+                    b.Navigation("Images");
                 });
 
             modelBuilder.Entity("Ichiba.Shipment.Domain.Entities.ShipmentEntity", b =>

@@ -38,6 +38,13 @@ public class PackageController : ControllerBase
         return result.Status ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("multiple")]
+    public async Task<IActionResult> PostMultiple([FromBody] CreateMultiplePackagesCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPut("{id:Guid}")]
     public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] UpdatePackageCommand command)
     {

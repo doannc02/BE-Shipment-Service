@@ -1,3 +1,4 @@
+using Google.Api;
 using Ichiba.Shipment.Application;
 using Ichiba.Shipment.Infrastructure;
 using Microsoft.OpenApi.Models;
@@ -5,9 +6,21 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalhost",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:3000", "http://localhost:5173") 
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 
 // Add services to the container.
-
+//builder.Services.AddDaprClient();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -43,6 +56,11 @@ if (app.Environment.IsDevelopment())
 // Configure the HTTP request pipeline.
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowLocalhost");
+
+
+app.UseCloudEvents();
 
 app.UseAuthorization();
 

@@ -19,6 +19,12 @@ public class ShipmentDbContext : DbContext
     public DbSet<Warehouse> Warehouses { get; set; }
     public DbSet<PackageAddress> PackageAddresses { get; set; }
     public DbSet<PackageProduct> PackageProducts { get; set; }
+    public DbSet<Product> Products { get; set; }
+    public DbSet<ProductAttribute> ProductAttributes { get; set; }
+    public DbSet<ProductAttributeValue> ProductAttributeValues { get; set; }
+    public DbSet<ProductVariant> ProductVariants { get; set; }
+    public DbSet<ProductVariantAtttributeValue> ProductVariantAtttributeValues { get; set; }
+    public DbSet<ProductVariantImage> ProductVariantImages { get; set; }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql("Host=localhost;Database=logistics_system;Username=postgres;Password=123123");

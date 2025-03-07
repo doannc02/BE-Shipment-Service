@@ -18,7 +18,8 @@ public class Package
     public decimal Height { get; set; }
     public decimal Weight { get; set; }
     public decimal Amount { get; set; }
-    
+    public CubitUnit CubitUnit { get; set; }
+    public WeightUnit WeightUnit { get; set; }
     public DateTime CreateAt { get; set; } = DateTime.UtcNow;
     public Guid? CreateBy { get; set; }
     public DateTime? UpdateAt { get; set; }

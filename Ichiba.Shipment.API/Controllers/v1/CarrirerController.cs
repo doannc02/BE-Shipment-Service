@@ -1,7 +1,10 @@
-﻿using Ichiba.Shipment.Application.Carriers.Commands;
+﻿using Dapr.Client;
+using Ichiba.Shipment.Application.Carriers.Commands;
 using Ichiba.Shipment.Application.Carriers.Queries;
 using Ichiba.Shipment.Application.Shipments.Commands;
 using Ichiba.Shipment.Application.Shipments.Queries;
+using Ichiba.Shipment.Infrastructure.Connecter.CustomerService;
+using Ichiba.Shipment.Infrastructure.Services.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,7 +19,7 @@ namespace Ichiba.Shipment.API.Controllers.v1
         private readonly IMediator _mediator;
         public CarrirerController(IMediator mediator)
         {
-            _mediator = mediator;
+            _mediator = mediator;          
         }
 
         [HttpPost("create")]

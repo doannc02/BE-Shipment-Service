@@ -88,6 +88,13 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
             var totalElements = await queryable.CountAsync(cancellationToken);
             if (totalElements > 0)
             {
+                var warehouseIds = await queryable.Select(s => s.WarehouseId).Distinct().ToListAsync(cancellationToken);
+                var warehouses = await _dbContext.Warehouses
+                    .Where(c => warehouseIds.Contains(c.Id))
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+                var warehouseDictionary = warehouses.ToDictionary(c => c.Id);
+
                 // Lấy danh sách tất cả các CarrierId từ các Shipment
                 var carrierIds = await queryable.Select(s => s.CarrierId).Distinct().ToListAsync(cancellationToken);
 
@@ -118,6 +125,7 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
                     {
                         Content = shipments.Select(s => new GetShipmentDetailQueryResponse
                         {
+
                             Id = s.Id,
                             Customer = customers.ContainsKey(s.CustomerId) ? new Customer
                             {
@@ -138,14 +146,14 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
                                 Length = sp.Package.Length,
                                 WarehouseId = sp.Package.WarehouseId,
                                 CustomerId = sp.Package.CustomerId,
-                                AddressSender = PackageAddressMapping.MapPackageAddress( sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.SenderAddress)),
-                                AddressReceive = PackageAddressMapping.MapPackageAddress( sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.ReceiveAddress)),
+                                AddressSender = PackageAddressMapping.MapPackageAddress(sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.SenderAddress)),
+                                AddressReceive = PackageAddressMapping.MapPackageAddress(sp.Package.PackageAdresses.FirstOrDefault(a => a.Type == ShipmentAddressType.ReceiveAddress)),
                             }).ToList(),
                             ShipmentNumber = s.ShipmentNumber,
                             Note = s.Note,
                             Status = s.Status,
                             TotalAmount = s.TotalAmount,
-                            Weight = s.Weight,                         
+                            Weight = s.Weight,
                             Carrier = carrierDictionary.ContainsKey(s.CarrierId) ? new CarrierSMView
                             {
                                 Id = carrierDictionary[s.CarrierId].Id,
@@ -154,6 +162,15 @@ public class GetListShipmentQueryHandler : IRequestHandler<GetListShipmentQuery,
                                 logo = carrierDictionary[s.CarrierId].logo,
                                 ShippingMethod = carrierDictionary[s.CarrierId].ShippingMethod,
                                 Type = carrierDictionary[s.CarrierId].Type
+                            } : null!,
+                            Warehouse = warehouseDictionary.ContainsKey(s.WarehouseId) ? new
+                            {
+                                id = warehouseDictionary[s.WarehouseId].Id,
+                                name = warehouseDictionary[s.WarehouseId].Name,
+                                ward = warehouseDictionary[s.WarehouseId].Ward,
+                                country = warehouseDictionary[s.WarehouseId].Country,
+                                address = warehouseDictionary[s.WarehouseId].Address,
+                                logo = warehouseDictionary[s.WarehouseId].Logo
                             } : null!
                         }).ToList(),
                         Page = query.Page,

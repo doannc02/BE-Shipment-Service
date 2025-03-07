@@ -9,6 +9,8 @@ using Ichiba.Shipment.Infrastructure.Services.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Net.WebSockets;
+using System.Threading;
 
 namespace Ichiba.Shipment.Application.Shipments.Commands;
 
@@ -21,93 +23,6 @@ public class CreateMultiShipmentsCommand : IRequest<BaseEntity<CreateShipmentsRe
 {
     public required List<CreateShipmentCommand> Shipments { get; set; } = new();
 }
-
-//public class CreateShipmentsCommandHandler : IRequestHandler<CreateMultiShipmentsCommand, CreateShipmentsResponse>
-//{
-//    private readonly IShipmentRepository _shipmentRepository;
-//    private readonly ILogger<CreateShipmentsCommandHandler> _logger;
-//    private readonly ICustomerService _customerService;
-
-//    public CreateShipmentsCommandHandler(
-//        IShipmentRepository shipmentRepository,
-//        ILogger<CreateShipmentsCommandHandler> logger,
-//        ICustomerService customerService)
-//    {
-//        _shipmentRepository = shipmentRepository;
-//        _logger = logger;
-//        _customerService = customerService;
-//    }
-
-//    public async Task<CreateShipmentsResponse> Handle(CreateMultiShipmentsCommand request, CancellationToken cancellationToken)
-//    {
-//        var shipmentIds = new List<Guid>();
-
-//        foreach (var shipmentCommand in request.Shipments)
-//        {
-//            var IdGenerate = Guid.NewGuid();
-//            string shipmentNumber;
-
-//            do
-//            {
-//                shipmentNumber = await GenShipmentNumber(IdGenerate);
-//            }
-//            while (await _shipmentRepository.ShipmentNumberExistsAsync(shipmentNumber));
-
-//            var currentCustomer = await GetCustomerById(shipmentCommand.CustomerId);
-//            if (currentCustomer == null || currentCustomer.Id == Guid.Empty)
-//            {
-//                _logger.LogInformation($"Customer info is missing.");
-//                throw new ArgumentNullException(nameof(currentCustomer), "Customer information is missing.");
-//            }
-
-//            var shipment = new ShipmentEntity()
-//            {
-//                Id = IdGenerate,
-//                CustomerId = shipmentCommand.CustomerId,
-//                ShipmentNumber = shipmentNumber,
-//                CreateAt = DateTime.UtcNow,
-//                Note = shipmentCommand.Note,
-//                Status = ShipmentStatus.ShipmentCreated,
-//                //Addresses = shipmentCommand.Addresses.Select(addr => new ShipmentAddress
-//                //{
-//                //    Id = Guid.NewGuid(),
-//                //    ShipmentId = IdGenerate,
-//                //    Type = ShipmentAddressType.SenderAddress,
-//                //    Address = addr.Address,
-//                //    City = addr.City,
-//                //    Code = addr.Code,
-//                //    District = addr.District,
-//                //    Name = addr.Name,
-//                //    CreateAt = DateTime.UtcNow
-//                //}).ToList()
-//            };
-
-//            await _shipmentRepository.AddAsync(shipment);
-//            shipmentIds.Add(shipment.Id);
-
-//            _logger.LogInformation($"Shipment {shipmentNumber} created successfully.");
-//        }
-
-//        return new CreateShipmentsResponse
-//        {
-//            ShipmentIds = shipmentIds
-//        };
-//    }
-
-//    private async Task<string> GenShipmentNumber(Guid guid)
-//    {
-//        string prefix = "SJA";
-//        string datePart = DateTime.UtcNow.ToString("yyMM");
-//        string valueSignature = guid.ToString("N").Substring(0, 4);
-
-//        return $"{prefix}{datePart}{valueSignature}";
-//    }
-
-//    public async Task<CustomerEntityView> GetCustomerById(Guid idCustomer)
-//    {
-//        return await _customerService.GetDetailCustomer(idCustomer);
-//    }
-//}
 
 public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShipmentsCommand, BaseEntity<CreateShipmentsResponse>>
 {
@@ -132,6 +47,10 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
     {
         var shipmentIds = new List<Guid>();
 
+        var allPackagesToAdd = new List<Package>();
+      //  var allPackageProductsToAdd = new List<PackageProduct>();
+        var allShipmentPackagesToAdd = new List<ShipmentPackage>();
+        var allShipmentsToAdd = new List<ShipmentEntity>();
         foreach (var shipmentRequest in request.Shipments)
         {
             var shipmentId = Guid.NewGuid();
@@ -141,7 +60,8 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
             var validationResult = await ValidateEntities(shipmentRequest, cancellationToken);
             if (validationResult != null)
             {
-                continue;  // Skip this shipment if there's an error
+                _logger.LogError($"Shipment validation failed for {shipmentNumber}: {validationResult.Message}");
+                continue;
             }
 
             var customer = await _customerService.GetDetailCustomer(shipmentRequest.CustomerId);
@@ -179,11 +99,12 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
             if (packages.Count == 0)
             {
                 _logger.LogError($"No valid packages found for shipment {shipmentNumber}");
-                continue; // Skip this shipment if no valid packages found
+                continue;
             }
 
             var totalHeight = packages.Sum(pkg => pkg.Height);
             var totalWeight = packages.Sum(pkg => pkg.Weight);
+            var totalAmount = packages.Sum(pkg => pkg.Amount);
 
             var shipmentAddresses = await GetShipmentAddressesFromPackages(packages, shipmentId);
 
@@ -191,11 +112,11 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
             {
                 Id = Guid.NewGuid(),
                 ShipmentId = shipmentId,
+                CreateBy = pkg.CreateBy,
                 PackageId = pkg.Id,
                 CreateAt = DateTime.UtcNow
             }).ToList();
 
-            // Create the shipment
             var shipment = new ShipmentEntity
             {
                 Id = shipmentId,
@@ -210,12 +131,25 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
                 ShipmentPackages = shipmentPackages,
                 Height = totalHeight,
                 Weight = totalWeight,
+                TotalAmount = totalAmount,
+                WeightUnit = shipmentRequest.WeightUnit,
+                CubitUnit = shipmentRequest.CubitUnit
             };
 
-            await _shipmentRepository.AddAsync(shipment);
-            shipmentIds.Add(shipment.Id); // Collect the ID of the created shipment
+            // Add to batch collections
+            allShipmentsToAdd.Add(shipment);
+            allPackagesToAdd.AddRange(packages);
+            allShipmentPackagesToAdd.AddRange(shipmentPackages);
+            shipmentIds.Add(shipment.Id);
             _logger.LogInformation($"Shipment {shipmentNumber} created successfully.");
         }
+
+        // Save all entities in a batch
+        await _dbContext.Packages.AddRangeAsync(allPackagesToAdd, cancellationToken);
+      //  await _dbContext.PackageProducts.AddRangeAsync(allPackageProductsToAdd);
+        await _dbContext.ShipmentPackages.AddRangeAsync(allShipmentPackagesToAdd, cancellationToken);
+        await _dbContext.Shipments.AddRangeAsync(allShipmentsToAdd, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new BaseEntity<CreateShipmentsResponse>
         {
@@ -233,15 +167,17 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
 
         foreach (var incomingPackage in incomingPackages)
         {
+            var packageId = Guid.NewGuid();
             var existingPackage = await _dbContext.Packages
                 .FirstOrDefaultAsync(p => p.Id == incomingPackage.Id && p.CustomerId == customer.Id);
-            var packageNumber = await GeneratePackageNumberAsync();
+
             if (existingPackage == null)
             {
+                var packageNumber = await GeneratePackageNumberAsync();
                 var newPackage = new Package
                 {
-                    Id = incomingPackage.Id,
-                    PackageNumber = packageNumber, 
+                    Id = packageId, 
+                    PackageNumber = packageNumber,
                     CustomerId = customer.Id,
                     PackageAdresses = packageAddresses,
                     CreateAt = DateTime.UtcNow,
@@ -250,15 +186,109 @@ public class CreateMultiShipmentsCommandHandler : IRequestHandler<CreateMultiShi
                     CreateBy = incomingPackage.CreateBy,
                     Length = incomingPackage.Length,
                     Note = incomingPackage.Note,
-                    WarehouseId =  warehouse.Id,
+                    WarehouseId = warehouse.Id,
+                    PackageProducts = new List<PackageProduct>()
                 };
 
-                await _dbContext.Packages.AddAsync(newPackage);
                 packages.Add(newPackage);
+
+                if (incomingPackage.PackageProducts != null && incomingPackage.PackageProducts.Any())
+                {
+                    var packageProducts = incomingPackage.PackageProducts.Select(pkd => new PackageProduct()
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductName = pkd.ProductName,
+                        PackageId = packageId, 
+                        Origin = pkd.Origin,
+                        Unit = pkd.Unit,
+                        ProductLink = pkd.ProductLink,
+                        Tax = pkd.Tax,
+                        OriginPrice = pkd.OriginPrice,
+                        Quantity = pkd.Quantity,
+                        Total = pkd.Quantity * pkd.OriginPrice
+                    }).ToList();
+
+                    newPackage.PackageProducts.AddRange(packageProducts);
+                }
             }
             else
             {
                 packages.Add(existingPackage);
+                packageId = existingPackage.Id; 
+
+                if (incomingPackage.PackageProducts != null && incomingPackage.PackageProducts.Any())
+                {
+                    var packageProducts = incomingPackage.PackageProducts.Select(pkd => new PackageProduct()
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductName = pkd.ProductName,
+                        PackageId = packageId, 
+                        Origin = pkd.Origin,
+                        Unit = pkd.Unit,
+                        ProductLink = pkd.ProductLink,
+                        Tax = pkd.Tax,
+                        OriginPrice = pkd.OriginPrice,
+                        Quantity = pkd.Quantity,
+                        Total = pkd.Quantity * pkd.OriginPrice
+                    }).ToList();
+
+                    existingPackage.PackageProducts.AddRange(packageProducts);
+                }
+            }
+
+            if (incomingPackage.Products != null && incomingPackage.Products.Any())
+            {
+                var products = incomingPackage.Products.Select(p => new Product
+                {
+                    Id = Guid.NewGuid(),
+                    Name = p.Name,
+                    Brand = p.Brand,
+                    Category = p.Category,
+                    Code = p.Code,
+                    SKU = p.SKU,
+                    ImageUrl = p.ImageUrl,
+                    Description = p.Description,
+                    MetaTitle = p.MetaTitle,
+                    IsHasVariant = p.IsHasVariant,
+                    Price = p.Price,
+                    CreateAt = DateTime.UtcNow,
+                    ProductAttributes = p.Attributes.Select(a => new ProductAttribute
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductId = Guid.NewGuid(),
+                        Name = a.Name,
+                        Values = a.Values.Select(v => new ProductAttributeValue
+                        {
+                            Id = Guid.NewGuid(),
+                            Value = v
+                        }).ToList()
+                    }).ToList(),
+                    Variants = p.Variants.Select(v => new ProductVariant
+                    {
+                        Id = Guid.NewGuid(),
+                        SKU = v.SKU,
+                        Price = v.Price,
+                        Weight = v.Weight,
+                        Length = v.Length,
+                        Width = v.Width,
+                        Height = v.Height,
+                        StockQty = v.StockQty,
+                        Images = v.ImageUrls.Select(i => new ProductVariantImage { ImageUrl = i }).ToList()
+                    }).ToList()
+                }).ToList();
+
+                var packageProducts = products.Select(p => new PackageProduct
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = p.Id,
+                    ProductName = p.Name,
+                    PackageId = packageId, 
+                    Quantity = (int)incomingPackage.Products.First(pr => pr.Name == p.Name).Variants.Sum(v => v.StockQty),
+                    Total = (double)(p.Variants.Sum(v => v.Price * v.StockQty))
+                }).ToList();
+
+                var newPackage = packages.FirstOrDefault(pkg => pkg.Id == packageId);
+                newPackage?.PackageProducts.AddRange(packageProducts);
             }
         }
 

@@ -9,6 +9,13 @@
     }
   },
   "profiles": {
+    "Development": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:8090"
+    },
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
@@ -27,7 +34,19 @@
       "applicationUrl": "https://localhost:7174;http://localhost:5117",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-      }
+      },
+      //"args": [
+      //  "dapr",
+      //  "run",
+      //  "--app-id",
+      //  "shipmemnts",
+      //  "--app-port",
+      //  "7070",
+      //  "--components-path",
+      //  "./components",
+      //  "-- dotnet",
+      //  "run"
+      //]
     },
     "IIS Express": {
       "commandName": "IISExpress",

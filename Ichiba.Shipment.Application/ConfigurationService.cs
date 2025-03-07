@@ -4,6 +4,7 @@ using Ichiba.Shipment.Application.Shipments.Commands;
 using Ichiba.Shipment.Domain.Interfaces;
 using Ichiba.Shipment.Infrastructure.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 
 namespace Ichiba.Shipment.Application;
@@ -12,6 +13,7 @@ public static class ConfigurationService
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection service)
     {
+        service.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect("localhost:6379"));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateMultiShipmentsCommandHandler).Assembly));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateShipmentCommandHandler).Assembly));
         service.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(DeleteShipmentCommandHandler).Assembly));

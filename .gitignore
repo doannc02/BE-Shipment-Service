@@ -152,9 +152,9 @@ publish/
 # NuGet Packages
 *.nupkg
 # The packages folder can be ignored because of Package Restore
-**/[Pp]ackages/*
-# except build/, which is used as an MSBuild target.
-!**/[Pp]ackages/build/
+# **/packages/*
+# # except build/, which is used as an MSBuild target.
+# !**/[Pp]ackages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignoreable files
@@ -172,7 +172,7 @@ rcf/
 # Windows Store app package directories and files
 AppPackages/
 BundleArtifacts/
-Package.StoreAssociation.xml
+# Package.StoreAssociation.xml
 _pkginfo.txt
 *.appx
 

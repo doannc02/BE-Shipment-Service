@@ -1,4 +1,6 @@
-﻿namespace Ichiba.Shipment.Domain.Entities;
+﻿using Ichiba.Shipment.Domain.Consts;
+
+namespace Ichiba.Shipment.Domain.Entities;
 public enum ShipmentStatus
 {
     ShipmentCreated,
@@ -20,6 +22,8 @@ public class ShipmentEntity
     public decimal TotalAmount { get; set; }
     public decimal Weight { get; set; }
     public decimal Height { get; set; }
+    public CubitUnit CubitUnit { get; set; }
+    public WeightUnit WeightUnit { get; set; }
     public DateTime CreateAt { get; set; } = DateTime.UtcNow;
     public Guid? CreateBy { get; set; }
     public DateTime? UpdateAt { get; set; }

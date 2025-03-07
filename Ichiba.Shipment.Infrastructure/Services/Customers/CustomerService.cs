@@ -13,12 +13,15 @@ public class CustomerService : ICustomerService, ICustomerBatchLookupService
 
     public async Task<CustomerEntityView> GetDetailCustomer(Guid id)
     {
+    try
+    {
         var response = await _httpClient.GetAsync($"/api/customer/{id}");
 
+    
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync();
-            throw new Exception($"Error retrieving customer: {response.StatusCode} - {errorContent}");
+            return new CustomerEntityView(); 
         }
 
         var jsonString = await response.Content.ReadAsStringAsync();
@@ -26,18 +29,25 @@ public class CustomerService : ICustomerService, ICustomerBatchLookupService
 
         if (string.IsNullOrWhiteSpace(jsonString))
         {
-            return new CustomerEntityView();
+            return new CustomerEntityView(); 
         }
 
         var responseJson = JsonConvert.DeserializeObject<CustomerEntityView>(jsonString);
 
         if (responseJson == null)
         {
-            throw new Exception("Deserialization returned null. Check the JSON structure and CustomerEntity definition.");
+            return new CustomerEntityView(); 
         }
 
         return responseJson;
     }
+    catch (Exception ex)
+    {
+        
+        return new CustomerEntityView();
+    }
+}
+
 
     public async Task<Dictionary<Guid, CustomerEntityView>> GetListCustomerByIds(List<Guid> customerIds)
     {
